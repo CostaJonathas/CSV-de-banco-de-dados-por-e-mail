@@ -100,7 +100,7 @@ def enviar_email():
         part.add_header('Content-Disposition', 'attachment; filename= %s' % filename)
         msg.attach(part)
 
-    S = smtplib.SMTP('smtp.office365.com: 587')
+    S = smtplib.SMTP('smtp.office365.com: 587') # SMTP do outlook, se caso for gmail use smtp.gmail.com
     S.starttls()
     S.login(msg['From'], password)
     S.sendmail(msg['From'], [msg['To']], msg.as_string())
