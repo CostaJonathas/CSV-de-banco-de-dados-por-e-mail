@@ -1,0 +1,109 @@
+import pandas as pd
+import os
+from datetime import datetime
+import pytz
+import pyodbc
+import csv
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+from segredo import senha #Crie um outro script na mesma pasta deste que tenha a senha de aplicativo para ser importada
+
+server = 'IP do servidor do banco de dados' 
+database = 'Base de dados' 
+username = 'Username do banco de dados' 
+password = 'Senha do banco de dados'
+
+# para autenticação do SQL Server
+dados_conexao = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password
+
+# para autenticação do Windows
+# dados_conexao = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database+';Trusted_Connection=yes'
+
+conexao = pyodbc.connect(dados_conexao)
+print("Conexão com o banco de dados estabelecida")
+
+cursor = conexao.cursor()
+
+cursor.execute("""
+COLOQUE AQUI A SUA CONSULTA SQL
+""")
+
+resultados = cursor.fetchall()
+
+# Defina o caminho da pasta onde você deseja salvar os arquivos
+pasta = 'Caminho da sua pasta'
+
+# Certifique-se de que a pasta existe
+os.makedirs(pasta, exist_ok=True)
+
+# Se precisar de cabeçalho, insira abaixo no mesmo formato
+cabecalho = [
+    'vendas', 'compras', 'clientes' # Insira quantos forem necessários
+]
+
+# Escrevendo em um arquivo CSV
+with open(os.path.join(pasta, 'vendas.csv'), 'w', newline='') as f:
+    writer = csv.writer(f, delimiter=';')
+    writer.writerow(cabecalho)
+    writer.writerows(resultados)
+
+# Escrevendo em um arquivo TXT
+with open(os.path.join(pasta, 'vendas.txt'), 'w') as f:
+    for linha in resultados:
+        f.write(';'.join(map(str, linha)) + '\n')
+
+# A parte abaixo é opcional, ela foi criada apenas para suprir uma necessidade de fazer duas consultas na sequência
+          
+cursor.execute("""
+COLOQUE AQUI SUA CONSULTA SQL
+""")
+
+resultados = cursor.fetchall()
+
+# Exemplo de cabeçalho
+cabecalho = ['Data do Estoque', 'CNPJ do Local', 'Código GTIN', 'CNPJ Fornecedor', 'Quantidade em Estoque', 'Referência do Produto']
+
+# Escrevendo em um arquivo CSV
+with open(os.path.join(pasta, 'estoque.csv'), 'w', newline='') as f:
+    writer = csv.writer(f, delimiter=';')
+    writer.writerow(cabecalho)
+    writer.writerows(resultados)
+
+# Escrevendo em um arquivo TXT
+with open(os.path.join(pasta, 'estoque.txt'), 'w') as f:
+    for linha in resultados:
+        f.write(';'.join(map(str, linha)) + '\n')
+
+# Confirma as inserções e fecha a conexão
+conexao.commit()
+conexao.close()
+print('conexão encerrada')
+
+def enviar_email():
+    msg = MIMEMultipart()
+    msg['Subject'] = 'Teste'
+    msg['From'] = 'exemplo@hotmail.com'  # substitua pelo seu email
+    msg['To'] = 'exemplonovamente@hotmail.com'  # substitua pelo email do destinatário
+    password = senha
+
+     # Lista dos nomes dos arquivos a serem anexados
+    filenames = ['estoque.csv', 'estoque.txt', 'vendas.csv', 'vendas.txt']
+
+    for filename in filenames:
+        # Anexar um arquivo
+        attachment = open(filename, 'rb')
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(attachment.read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', 'attachment; filename= %s' % filename)
+        msg.attach(part)
+
+    S = smtplib.SMTP('smtp.office365.com: 587')
+    S.starttls()
+    S.login(msg['From'], password)
+    S.sendmail(msg['From'], [msg['To']], msg.as_string())
+    print('email enviado')
+
+enviar_email()
